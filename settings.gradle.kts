@@ -1,2 +1,2 @@
-rootProject.name = "lsm-storage-engine"
+rootProject.name = "tmsvr-databases"
 

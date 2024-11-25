@@ -1,4 +1,4 @@
-package com.tmsvr;
+package com.tmsvr.databases.lsmtree;
 
 import java.io.IOException;
 import java.nio.file.Files;

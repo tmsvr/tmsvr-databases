@@ -1,6 +1,6 @@
 package com.tmsvr.databases.lsmtree.sstable;
 
-import com.tmsvr.TestUtils;
+import com.tmsvr.databases.lsmtree.TestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

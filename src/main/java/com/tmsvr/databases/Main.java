@@ -36,13 +36,13 @@ public class Main {
         ds.put("key9", "value9-modified");
         ds.delete("key5");
 
-        log.info("key1 - " + ds.get("key1").orElse("not found"));
-        log.info("key2 - " + ds.get("key2").orElse("not found"));
-        log.info("key3 - " + ds.get("key3").orElse("not found"));
-        log.info("key5 - " + ds.get("key5").orElse("not found"));
-        log.info("key6 - " + ds.get("key6").orElse("not found"));
-        log.info("key8 - " + ds.get("key8").orElse("not found"));
-        log.info("key9 - " + ds.get("key9").orElse("not found"));
-        log.info("key10 - " + ds.get("key10").orElse("not found"));
+        log.info("key1 - {}", ds.get("key1").orElse("not found"));
+        log.info("key2 - {}", ds.get("key2").orElse("not found"));
+        log.info("key3 - {}", ds.get("key3").orElse("not found"));
+        log.info("key5 - {}", ds.get("key5").orElse("not found"));
+        log.info("key6 - {}", ds.get("key6").orElse("not found"));
+        log.info("key8 - {}", ds.get("key8").orElse("not found"));
+        log.info("key9 - {}", ds.get("key9").orElse("not found"));
+        log.info("key10 - {}", ds.get("key10").orElse("not found"));
     }
 }
