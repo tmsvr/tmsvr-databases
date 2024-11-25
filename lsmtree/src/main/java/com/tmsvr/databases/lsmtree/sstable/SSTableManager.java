@@ -54,11 +54,11 @@ public class SSTableManager {
 
         try (Stream<Path> paths = Files.find(rootPath, 1, (path, attr) -> path.toString().endsWith(".index"))) {
             paths.forEach(path -> {
-                log.info("SSTable found: " + path.toString().replace(".index", ""));
+                log.info("SSTable found: {}", path.toString().replace(".index", ""));
                 try {
                     ssTables.add(new SSTable(path.toString().replace(".index", "")));
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    log.warn("Error during reading tables from disk", e);
                 }
             });
         }
