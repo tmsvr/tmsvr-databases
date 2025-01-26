@@ -36,8 +36,16 @@ public class BTreeDataStore implements DataStore {
 
     @Override
     public void delete(String key) {
-        // Implement deletion logic here (requires additional handling for underflow)
-        throw new UnsupportedOperationException("Delete operation not implemented yet.");
+        if (root == null) {
+            return;
+        }
+
+        root.deleteFromNode(key);
+
+        // If the root becomes empty, and it is not a leaf, make the first child the new root
+        if (root.data.isEmpty() && !root.isLeaf) {
+            root = root.children.getFirst();
+        }
     }
 
     BTreeNode getRoot() {

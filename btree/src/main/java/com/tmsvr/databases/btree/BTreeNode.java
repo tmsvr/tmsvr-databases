@@ -102,4 +102,119 @@ class BTreeNode {
         children.add(index + 1, newChild);
         data.add(index, middleKey);
     }
+
+    public void deleteFromNode(String key) {
+        int idx = findKeyIndex(key);
+
+        if (idx < data.size() && data.get(idx).key().equals(key)) {
+            if (isLeaf) {
+                data.remove(idx); // Case 1: Key is in a leaf
+            } else {
+                // Case 2: Key is in an internal node
+                if (children.get(idx).data.size() >= MIN_DEGREE) {
+                    // Replace with predecessor
+                    DataRecord predecessor = getPredecessor(idx);
+                    data.set(idx, predecessor);
+                    children.get(idx).deleteFromNode(predecessor.key());
+                } else if (children.get(idx + 1).data.size() >= MIN_DEGREE) {
+                    // Replace with successor
+                    DataRecord successor = getSuccessor(idx);
+                    data.set(idx, successor);
+                    children.get(idx + 1).deleteFromNode(successor.key());
+                } else {
+                    // Merge both children
+                    mergeChildren(idx);
+                    children.get(idx).deleteFromNode(key);
+                }
+            }
+        } else if (!isLeaf) {
+            // Key is not in this node
+            boolean lastChild = (idx == data.size());
+            if (children.get(idx).data.size() < MIN_DEGREE) {
+                fillChild(idx);
+            }
+
+            if (lastChild && idx > data.size()) {
+                children.get(idx - 1).deleteFromNode(key);
+            } else {
+                children.get(idx).deleteFromNode(key);
+            }
+        }
+    }
+
+    private int findKeyIndex(String key) {
+        int idx = 0;
+        while (idx < data.size() && key.compareTo(data.get(idx).key()) > 0) {
+            idx++;
+        }
+        return idx;
+    }
+
+    private DataRecord getPredecessor(int idx) {
+        BTreeNode current = children.get(idx);
+        while (!current.isLeaf) {
+            current = current.children.get(current.data.size());
+        }
+        return current.data.getLast();
+    }
+
+    private DataRecord getSuccessor(int idx) {
+        BTreeNode current = children.get(idx + 1);
+        while (!current.isLeaf) {
+            current = current.children.getFirst();
+        }
+        return current.data.getFirst();
+    }
+
+    private void mergeChildren(int idx) {
+        BTreeNode leftChild = children.get(idx);
+        BTreeNode rightChild = children.get(idx + 1);
+
+        leftChild.data.add(data.remove(idx));
+        leftChild.data.addAll(rightChild.data);
+
+        if (!rightChild.isLeaf) {
+            leftChild.children.addAll(rightChild.children);
+        }
+
+        children.remove(idx + 1);
+    }
+
+    private void fillChild(int idx) {
+        if (idx > 0 && children.get(idx - 1).data.size() >= MIN_DEGREE) {
+            borrowFromPrevious(idx);
+        } else if (idx < data.size() && children.get(idx + 1).data.size() >= MIN_DEGREE) {
+            borrowFromNext(idx);
+        } else {
+            if (idx < data.size()) {
+                mergeChildren(idx);
+            } else {
+                mergeChildren(idx - 1);
+            }
+        }
+    }
+
+    private void borrowFromPrevious(int idx) {
+        BTreeNode child = children.get(idx);
+        BTreeNode sibling = children.get(idx - 1);
+
+        child.data.addFirst(data.get(idx - 1));
+        if (!child.isLeaf) {
+            child.children.addFirst(sibling.children.removeLast());
+        }
+
+        data.set(idx - 1, sibling.data.removeLast());
+    }
+
+    private void borrowFromNext(int idx) {
+        BTreeNode child = children.get(idx);
+        BTreeNode sibling = children.get(idx + 1);
+
+        child.data.add(data.get(idx));
+        if (!child.isLeaf) {
+            child.children.add(sibling.children.removeFirst());
+        }
+
+        data.set(idx, sibling.data.removeFirst());
+    }
 }

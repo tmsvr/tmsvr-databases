@@ -84,4 +84,104 @@ class BTreeDataStoreTest {
     void testPutNullKeyThrowsException() {
         assertThrows(IllegalArgumentException.class, () -> dataStore.put(null, "value"), "Expected NullPointerException for null key");
     }
+
+    @Test
+    void testDeleteLeafKey() {
+        dataStore.put("key1", "value1");
+        dataStore.put("key2", "value2");
+
+        dataStore.delete("key1");
+
+        assertFalse(dataStore.get("key1").isPresent(), "Expected key1 to be deleted");
+        assertEquals(Optional.of("value2"), dataStore.get("key2"), "key2 should still exist");
+    }
+
+    @Test
+    void testDeleteInternalKeyWithPredecessor() {
+        dataStore.put("a", "1");
+        dataStore.put("b", "2");
+        dataStore.put("c", "3");
+        dataStore.put("d", "4");
+
+        dataStore.delete("b");
+
+        assertFalse(dataStore.get("b").isPresent(), "Expected key 'b' to be deleted");
+        assertEquals(Optional.of("1"), dataStore.get("a"), "Key 'a' should still exist");
+        assertEquals(Optional.of("3"), dataStore.get("c"), "Key 'c' should still exist");
+        assertEquals(Optional.of("4"), dataStore.get("d"), "Key 'd' should still exist");
+    }
+
+    @Test
+    void testDeleteKeyCausesMerge() {
+        dataStore.put("a", "1");
+        dataStore.put("b", "2");
+        dataStore.put("c", "3");
+        dataStore.put("d", "4");
+        dataStore.put("e", "5");
+        dataStore.put("f", "6");
+
+        // Delete keys to force merging of nodes
+        dataStore.delete("f");
+        dataStore.delete("e");
+        dataStore.delete("d");
+
+        assertFalse(dataStore.get("f").isPresent(), "Expected key 'f' to be deleted");
+        assertFalse(dataStore.get("e").isPresent(), "Expected key 'e' to be deleted");
+        assertFalse(dataStore.get("d").isPresent(), "Expected key 'd' to be deleted");
+
+        assertEquals(Optional.of("1"), dataStore.get("a"), "Key 'a' should still exist");
+        assertEquals(Optional.of("2"), dataStore.get("b"), "Key 'b' should still exist");
+        assertEquals(Optional.of("3"), dataStore.get("c"), "Key 'c' should still exist");
+    }
+
+    @Test
+    void testDeleteRootKey() {
+        dataStore.put("a", "1");
+        dataStore.put("b", "2");
+        dataStore.put("c", "3");
+
+        dataStore.delete("b");
+
+        assertFalse(dataStore.get("b").isPresent(), "Expected key 'b' to be deleted");
+        assertEquals(Optional.of("1"), dataStore.get("a"), "Key 'a' should still exist");
+        assertEquals(Optional.of("3"), dataStore.get("c"), "Key 'c' should still exist");
+    }
+
+    @Test
+    void testDeleteNonExistentKey() {
+        dataStore.put("key1", "value1");
+        dataStore.put("key2", "value2");
+
+        dataStore.delete("nonExistentKey");
+
+        assertEquals(Optional.of("value1"), dataStore.get("key1"), "Key1 should still exist");
+        assertEquals(Optional.of("value2"), dataStore.get("key2"), "Key2 should still exist");
+    }
+
+    @Test
+    void testDeleteKeyInComplexTree() {
+        // Insert enough keys to create a multi-level BTree
+        dataStore.put("a", "1");
+        dataStore.put("b", "2");
+        dataStore.put("c", "3");
+        dataStore.put("d", "4");
+        dataStore.put("e", "5");
+        dataStore.put("f", "6");
+        dataStore.put("g", "7");
+        dataStore.put("h", "8");
+        dataStore.put("i", "9");
+
+        // Delete a key that will require rebalancing
+        dataStore.delete("e");
+
+        assertFalse(dataStore.get("e").isPresent(), "Expected key 'e' to be deleted");
+        assertEquals(Optional.of("1"), dataStore.get("a"), "Key 'a' should still exist");
+        assertEquals(Optional.of("2"), dataStore.get("b"), "Key 'b' should still exist");
+        assertEquals(Optional.of("3"), dataStore.get("c"), "Key 'c' should still exist");
+        assertEquals(Optional.of("4"), dataStore.get("d"), "Key 'd' should still exist");
+        assertEquals(Optional.of("6"), dataStore.get("f"), "Key 'f' should still exist");
+        assertEquals(Optional.of("7"), dataStore.get("g"), "Key 'g' should still exist");
+        assertEquals(Optional.of("8"), dataStore.get("h"), "Key 'h' should still exist");
+        assertEquals(Optional.of("9"), dataStore.get("i"), "Key 'i' should still exist");
+    }
 }
