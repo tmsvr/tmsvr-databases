@@ -48,8 +48,11 @@ class BTreeDataStoreTest {
     @Test
     void testOverwriteValueForExistingKey() {
         dataStore.put("key1", "value1");
+        dataStore.put("key1", "newValue1");
 
-        assertThrows(IllegalArgumentException.class, () -> dataStore.put("key1", "newValue1"), "Duplicate keys should not be allowed");
+        Optional<String> valueFromDb = dataStore.get("key1");
+        assertTrue(valueFromDb.isPresent());
+        assertEquals("newValue1", valueFromDb.get());
     }
 
     @Test

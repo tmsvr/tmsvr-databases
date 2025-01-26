@@ -42,9 +42,11 @@ class BTreeNode {
         int i = data.size() - 1;
 
         if (isLeaf) {
-            for (DataRecord pair : data) {
-                if (pair.key().equals(kv.key())) {
-                    throw new IllegalArgumentException("Duplicate key: " + kv.key());
+            // Check for duplicate keys and overwrite the value if found
+            for (int j = 0; j < data.size(); j++) {
+                if (data.get(j).key().equals(kv.key())) {
+                    data.set(j, kv);
+                    return;
                 }
             }
 
@@ -60,9 +62,11 @@ class BTreeNode {
             }
             i++;
 
-            // Check for duplicates in the child node
-            if (children.get(i).search(kv.key()) != null) {
-                throw new IllegalArgumentException("Duplicate key: " + kv.key());
+            // If the key exists in the child, update the value
+            DataRecord existing = children.get(i).search(kv.key());
+            if (existing != null) {
+                children.get(i).insertNonFull(kv);
+                return;
             }
 
             // Split the child if it is full
