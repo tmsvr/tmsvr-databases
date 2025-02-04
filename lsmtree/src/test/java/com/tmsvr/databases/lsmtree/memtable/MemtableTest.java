@@ -11,19 +11,19 @@ class MemtableTest {
 
     @Test
     void testInitialisationOk() {
-        Memtable memtable = new Memtable();
+        Memtable<String, String> memtable = new Memtable<>();
         assertEquals(0, memtable.getSize());
     }
 
     @Test
     void testInitialisationWithDataOk() {
-        List<DataRecord> recordList = List.of(
-                new DataRecord("a", "b"),
-                new DataRecord("a", "c"),
-                new DataRecord("b", "d")
+        List<DataRecord<String, String>> recordList = List.of(
+                new DataRecord<>("a", "b"),
+                new DataRecord<>("a", "c"),
+                new DataRecord<>("b", "d")
         );
 
-        Memtable memtable = new Memtable(recordList);
+        Memtable<String, String> memtable = new Memtable<>(recordList);
 
         assertEquals(2, memtable.getSize());
         assertEquals("c", memtable.get("a"));
@@ -32,10 +32,10 @@ class MemtableTest {
 
     @Test
     void testPutOk() {
-        Memtable memtable = new Memtable();
-        memtable.put(new DataRecord("a", "b"));
-        memtable.put(new DataRecord("a", "c"));
-        memtable.put(new DataRecord("b", "d"));
+        Memtable<String, String> memtable = new Memtable<>();
+        memtable.put(new DataRecord<>("a", "b"));
+        memtable.put(new DataRecord<>("a", "c"));
+        memtable.put(new DataRecord<>("b", "d"));
 
         assertEquals(2, memtable.getSize());
         assertEquals("c", memtable.get("a"));
@@ -44,10 +44,10 @@ class MemtableTest {
 
     @Test
     void testClearOk() {
-        Memtable memtable = new Memtable();
-        memtable.put(new DataRecord("a", "b"));
-        memtable.put(new DataRecord("a", "c"));
-        memtable.put(new DataRecord("b", "d"));
+        Memtable<String, String> memtable = new Memtable<>();
+        memtable.put(new DataRecord<>("a", "b"));
+        memtable.put(new DataRecord<>("a", "c"));
+        memtable.put(new DataRecord<>("b", "d"));
 
         memtable.clear();
 

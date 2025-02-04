@@ -9,11 +9,11 @@ import java.util.Optional;
 
 class BTreeDataStoreTest {
 
-    private BTreeDataStore dataStore;
+    private BTreeDataStore<String, String> dataStore;
 
     @BeforeEach
     void setUp() {
-        dataStore = new BTreeDataStore();
+        dataStore = new BTreeDataStore<>();
     }
 
     @Test

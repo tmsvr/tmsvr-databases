@@ -10,10 +10,12 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.tmsvr.databases.lsmtree.TestUtils.stringSerDe;
 import static com.tmsvr.databases.lsmtree.sstable.SSTableFixtures.FILENAME;
 import static com.tmsvr.databases.lsmtree.sstable.SSTableFixtures.KEY_1;
 import static com.tmsvr.databases.lsmtree.sstable.SSTableFixtures.KEY_2;
 import static com.tmsvr.databases.lsmtree.sstable.SSTableFixtures.KEY_3;
+import static com.tmsvr.databases.lsmtree.sstable.SSTableFixtures.KEY_4;
 import static com.tmsvr.databases.lsmtree.sstable.SSTableFixtures.VALUE_1;
 import static com.tmsvr.databases.lsmtree.sstable.SSTableFixtures.VALUE_2;
 import static com.tmsvr.databases.lsmtree.sstable.SSTableFixtures.VALUE_3;
@@ -23,11 +25,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class SSTableTest {
 
-    private SSTable ssTable;
+    private SSTable<String, String> ssTable;
 
     @BeforeEach
     void setup() throws IOException {
-        ssTable = new SSTable(FILENAME);
+        ssTable = new SSTable<>(FILENAME, stringSerDe(), stringSerDe());
     }
 
     @AfterEach
@@ -47,6 +49,7 @@ public class SSTableTest {
         assertTrue(ssTable.getValue(KEY_1).isPresent());
         assertTrue(ssTable.getValue(KEY_2).isPresent());
         assertTrue(ssTable.getValue(KEY_3).isPresent());
+        assertTrue(ssTable.getValue(KEY_4).isEmpty());
 
         assertEquals(VALUE_1, ssTable.getValue(KEY_1).get());
         assertEquals(VALUE_2, ssTable.getValue(KEY_2).get());

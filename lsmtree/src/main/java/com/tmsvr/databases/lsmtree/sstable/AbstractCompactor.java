@@ -7,18 +7,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public abstract class AbstractCompactor implements Compactor {
-    SSTable merge(SSTable olderTable, SSTable newerTable) throws IOException {
-        List<DataRecord> result = new ArrayList<>();
+public abstract class AbstractCompactor<K extends Comparable<K>, V> implements Compactor<K, V> {
+    SSTable<K, V> merge(SSTable<K, V> olderTable, SSTable<K, V> newerTable) throws IOException {
+        List<DataRecord<K, V>> result = new ArrayList<>();
 
-        List<DataRecord> oldLines = olderTable.getAllLines();
-        List<DataRecord> newLines = newerTable.getAllLines();
+        List<DataRecord<K, V>> oldLines = olderTable.getAllLines();
+        List<DataRecord<K, V>> newLines = newerTable.getAllLines();
 
         int i = 0;
         int j = 0;
 
         while (true) {
-            DataRecord nextValue;
+            DataRecord<K, V> nextValue;
 
             if (i < oldLines.size() && j < newLines.size()) {
                 int comparisonResult = oldLines.get(i).key().compareTo(newLines.get(j).key());
@@ -47,7 +47,7 @@ public abstract class AbstractCompactor implements Compactor {
             result.add(nextValue);
         }
 
-        SSTable newTable = new SSTable("sstable-" + UUID.randomUUID());
+        SSTable<K, V> newTable = new SSTable<>("sstable-" + UUID.randomUUID(), olderTable.getKeySerDe(), olderTable.getValueSerDe());
         newTable.write(result);
         return newTable;
     }

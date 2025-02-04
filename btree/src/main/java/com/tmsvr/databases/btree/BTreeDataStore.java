@@ -7,20 +7,20 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.Optional;
 
 @Slf4j
-public class BTreeDataStore implements DataStore {
-    private BTreeNode root = new BTreeNode(true);
+public class BTreeDataStore<K extends Comparable<K>, V> implements DataStore<K, V> {
+    private BTreeNode<K, V> root = new BTreeNode<>(true);
 
     @Override
-    public void put(String key, String value) {
+    public void put(K key, V value) {
         if (key == null || value == null) {
             throw new IllegalArgumentException("Null key or value not allowed");
         }
 
-        DataRecord kv = new DataRecord(key, value);
+        DataRecord<K, V> kv = new DataRecord<>(key, value);
 
         if (root.data.size() == BTreeNode.ORDER - 1) {
             // Root is full; split it and create a new root
-            BTreeNode newRoot = new BTreeNode(false);
+            BTreeNode<K, V> newRoot = new BTreeNode<>(false);
             newRoot.children.add(root);
             newRoot.splitChild(0);
             root = newRoot;
@@ -29,13 +29,13 @@ public class BTreeDataStore implements DataStore {
     }
 
     @Override
-    public Optional<String> get(String key) {
-        DataRecord result = root.search(key);
+    public Optional<V> get(K key) {
+        DataRecord<K, V> result = root.search(key);
         return result == null ? Optional.empty() : Optional.of(result.value());
     }
 
     @Override
-    public void delete(String key) {
+    public void delete(K key) {
         if (root == null) {
             return;
         }
@@ -48,7 +48,7 @@ public class BTreeDataStore implements DataStore {
         }
     }
 
-    BTreeNode getRoot() {
+    BTreeNode<K, V> getRoot() {
         return root;
     }
 
@@ -60,19 +60,19 @@ public class BTreeDataStore implements DataStore {
         }
     }
 
-    private void printTreeRecursively(BTreeNode node, int level) {
+    private void printTreeRecursively(BTreeNode<K, V> node, int level) {
         String indent = "  ".repeat(level);
 
         // Print the current node's keys
         System.out.print(indent + "Level " + level + " | Keys: ");
-        for (DataRecord kv : node.data) {
+        for (DataRecord<K, V> kv : node.data) {
             System.out.print(kv.key() + ", ");
         }
         System.out.println();
 
         // Recursively print children
         if (!node.isLeaf) {
-            for (BTreeNode child : node.children) {
+            for (BTreeNode<K, V> child : node.children) {
                 printTreeRecursively(child, level + 1);
             }
         }

@@ -1,9 +1,10 @@
 package com.tmsvr.databases;
 
-public record DataRecord(String key, String value) implements Comparable<DataRecord> {
+public record DataRecord<K extends Comparable<K>, V>(K key, V value) implements Comparable<DataRecord<K, V>> {
 
     @Override
-    public int compareTo(DataRecord o) {
-        return this.key.compareTo(o.key);
+    public int compareTo(DataRecord<K, V> other) {
+        return this.key.compareTo(other.key);
     }
 }
+

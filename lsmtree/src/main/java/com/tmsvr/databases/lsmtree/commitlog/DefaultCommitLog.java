@@ -1,6 +1,7 @@
 package com.tmsvr.databases.lsmtree.commitlog;
 
 import com.tmsvr.databases.DataRecord;
+import com.tmsvr.databases.serde.SerDe;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -11,12 +12,17 @@ import java.util.List;
 import java.util.stream.Stream;
 
 @Slf4j
-public class DefaultCommitLog implements CommitLog {
+public class DefaultCommitLog<K extends Comparable<K>,V> implements CommitLog<K,V> {
 
     static final String FILE_PATH = "commit-log.txt";
+    private final SerDe<K> keySerDe;
+    private final SerDe<V> valueSerDe;
     private long size;
 
-    public DefaultCommitLog() throws IOException {
+
+    public DefaultCommitLog(SerDe<K> keySerDe, SerDe<V> valueSerDe) throws IOException {
+        this.keySerDe = keySerDe;
+        this.valueSerDe = valueSerDe;
         this.size = 0;
 
         if (Files.exists(Paths.get(FILE_PATH))) {
@@ -37,23 +43,23 @@ public class DefaultCommitLog implements CommitLog {
         }
     }
 
-    private String entryToString(DataRecord entry) {
-        return entry.key() + "::" + entry.value() + System.lineSeparator();
+    private String entryToString(DataRecord<K,V> entry) {
+        return keySerDe.serialize(entry.key()) + "::" + valueSerDe.serialize(entry.value()) + System.lineSeparator();
     }
 
     @Override
-    public void append(DataRecord entry) throws IOException {
+    public void append(DataRecord<K,V> entry) throws IOException {
         Files.write(Paths.get(FILE_PATH), entryToString(entry).getBytes(), StandardOpenOption.APPEND);
         size++;
     }
 
     @Override
-    public List<DataRecord> readCommitLog() throws IOException {
+    public List<DataRecord<K,V>> readCommitLog() throws IOException {
         return Files.readAllLines(Paths.get(FILE_PATH))
                 .stream()
                 .map(line -> {
                     String[] split = line.split("::");
-                    return new DataRecord(split[0], split[1]);
+                    return new DataRecord<>(keySerDe.deserialize(split[0]), valueSerDe.deserialize(split[1]));
                 }).toList();
     }
 

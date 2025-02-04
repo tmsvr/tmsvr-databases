@@ -5,10 +5,10 @@ import com.tmsvr.databases.DataRecord;
 import java.io.IOException;
 import java.util.List;
 
-public interface CommitLog {
-    void append(DataRecord entry) throws IOException;
+public interface CommitLog<K extends Comparable<K>, V> {
+    void append(DataRecord<K,V> entry) throws IOException;
 
-    List<DataRecord> readCommitLog() throws IOException;
+    List<DataRecord<K,V>> readCommitLog() throws IOException;
 
     long getSize();
 

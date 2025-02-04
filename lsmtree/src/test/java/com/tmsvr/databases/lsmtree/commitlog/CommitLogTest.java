@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+import static com.tmsvr.databases.lsmtree.TestUtils.stringSerDe;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CommitLogTest {
@@ -22,7 +23,7 @@ class CommitLogTest {
 
     @Test
     void creationIsOk() throws IOException {
-        CommitLog cm = new DefaultCommitLog();
+        CommitLog<String, String> cm = new DefaultCommitLog<>(stringSerDe(), stringSerDe());
 
         assertEquals(0, cm.getSize());
         assertTrue(cm.readCommitLog().isEmpty());
@@ -31,31 +32,31 @@ class CommitLogTest {
 
     @Test
     void appendAndReadIsOk() throws IOException {
-        CommitLog cm = new DefaultCommitLog();
+        CommitLog<String, String> cm = new DefaultCommitLog<>(stringSerDe(), stringSerDe());
 
-        cm.append(new DataRecord("a", "b"));
-        cm.append(new DataRecord("a", "c"));
-        cm.append(new DataRecord("b", "d"));
+        cm.append(new DataRecord<>("a", "b"));
+        cm.append(new DataRecord<>("a", "c"));
+        cm.append(new DataRecord<>("b", "d"));
 
         assertEquals(3, cm.getSize());
-        List<DataRecord> commitLogEntries = cm.readCommitLog();
+        List<DataRecord<String, String>> commitLogEntries = cm.readCommitLog();
         assertEquals(3, commitLogEntries.size());
 
-        assertTrue(commitLogEntries.contains(new DataRecord("a", "b")));
-        assertTrue(commitLogEntries.contains(new DataRecord("a", "c")));
-        assertTrue(commitLogEntries.contains(new DataRecord("b", "d")));
+        assertTrue(commitLogEntries.contains(new DataRecord<>("a", "b")));
+        assertTrue(commitLogEntries.contains(new DataRecord<>("a", "c")));
+        assertTrue(commitLogEntries.contains(new DataRecord<>("b", "d")));
     }
 
     @Test
     void clearIsOk() throws IOException {
-        CommitLog cm = new DefaultCommitLog();
+        CommitLog<String, String> cm = new DefaultCommitLog<>(stringSerDe(), stringSerDe());
 
-        cm.append(new DataRecord("a", "b"));
-        cm.append(new DataRecord("a", "c"));
-        cm.append(new DataRecord("b", "d"));
+        cm.append(new DataRecord<>("a", "b"));
+        cm.append(new DataRecord<>("a", "c"));
+        cm.append(new DataRecord<>("b", "d"));
 
         assertEquals(3, cm.getSize());
-        List<DataRecord> commitLogEntries = cm.readCommitLog();
+        List<DataRecord<String, String>> commitLogEntries = cm.readCommitLog();
         assertEquals(3, commitLogEntries.size());
 
         cm.clear();

@@ -1,5 +1,6 @@
 package com.tmsvr.databases.lsmtree.sstable;
 
+import com.tmsvr.databases.serde.SerDe;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -13,21 +14,26 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 @Slf4j
-public class SSTableManager {
+public class SSTableManager<K extends Comparable<K>, V> {
     private static final int COMPACTION_THRESHOLD = 5;
-    private final List<SSTable> ssTables;
+    private final List<SSTable<K, V>> ssTables;
 
-    private final Compactor compactor;
+    private final Compactor<K, V> compactor;
+    private final SerDe<K> keySerDe;
+    private final SerDe<V> valueSerDe;
 
     private int newTablesSinceLastCompaction = 0;
 
-    public SSTableManager() {
+    public SSTableManager(SerDe<K> keySerDe, SerDe<V> valueSerDe) {
+        this.keySerDe = keySerDe;
+        this.valueSerDe = valueSerDe;
+
         this.ssTables = new ArrayList<>();
-        this.compactor = new RowCountBasedCompactor(10);
+        this.compactor = new RowCountBasedCompactor<>(10);
     }
 
-    public void flush(Map<String, String> data) throws IOException {
-        SSTable ssTable = new SSTable("sstable-" + UUID.randomUUID());
+    public void flush(Map<K, V> data) throws IOException {
+        SSTable<K, V> ssTable = new SSTable<>("sstable-" + UUID.randomUUID(), keySerDe, valueSerDe);
         ssTable.write(data);
         ssTables.add(ssTable);
 
@@ -38,9 +44,9 @@ public class SSTableManager {
         }
     }
 
-    public Optional<String> findValue(String key) throws IOException {
+    public Optional<V> findValue(K key) throws IOException {
         for (int i = ssTables.size() - 1; i >= 0; i--) {
-            Optional<String> value = ssTables.get(i).getValue(key);
+            Optional<V> value = ssTables.get(i).getValue(key);
             if (value.isPresent()) {
                 return value;
             }
@@ -52,11 +58,11 @@ public class SSTableManager {
     public void readTablesFromFile() throws IOException {
         Path rootPath = Path.of("");
 
-        try (Stream<Path> paths = Files.find(rootPath, 1, (path, attr) -> path.toString().endsWith(".index"))) {
+        try (Stream<Path> paths = Files.find(rootPath, 1, (path, _) -> path.toString().endsWith(".index"))) {
             paths.forEach(path -> {
                 log.info("SSTable found: {}", path.toString().replace(".index", ""));
                 try {
-                    ssTables.add(new SSTable(path.toString().replace(".index", "")));
+                    ssTables.add(new SSTable<>(path.toString().replace(".index", ""), keySerDe, valueSerDe));
                 } catch (IOException e) {
                     log.warn("Error during reading tables from disk", e);
                 }
@@ -65,7 +71,7 @@ public class SSTableManager {
     }
 
     public void compact() throws IOException {
-        List<SSTable> compactedTables = compactor.compact(ssTables);
+        List<SSTable<K, V>> compactedTables = compactor.compact(ssTables);
         ssTables.clear();
         ssTables.addAll(compactedTables);
 

@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.stream.Stream;
 
+import static com.tmsvr.databases.lsmtree.TestUtils.stringSerDe;
 import static com.tmsvr.databases.lsmtree.sstable.SSTableFixtures.KEY_1;
 import static com.tmsvr.databases.lsmtree.sstable.SSTableFixtures.KEY_2;
 import static com.tmsvr.databases.lsmtree.sstable.SSTableFixtures.KEY_3;
@@ -23,12 +24,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SSTableManagerTest {
 
-    private SSTableManager manager;
+    private SSTableManager<String, String> manager;
 
     @BeforeEach
     void setup() throws IOException {
         TestUtils.cleanupFiles();
-        manager = new SSTableManager();
+        manager = new SSTableManager<>(stringSerDe(), stringSerDe());
     }
 
     @AfterEach
@@ -45,8 +46,12 @@ class SSTableManagerTest {
         assertSSTablesFlushed(1);
 
         for (Map.Entry<String, String> entry : data.entrySet()) {
-            assertTrue(manager.findValue(entry.getKey()).isPresent());
-            assertEquals(entry.getValue(), manager.findValue(entry.getKey()).get());
+            if (entry.getValue() != null) {
+                assertTrue(manager.findValue(entry.getKey()).isPresent());
+                assertEquals(entry.getValue(), manager.findValue(entry.getKey()).get());
+            } else {
+                assertTrue(manager.findValue(entry.getKey()).isEmpty());
+            }
         }
     }
 
@@ -79,8 +84,12 @@ class SSTableManagerTest {
         manager.flush(Map.of("newKey", "newValue", "anotherNewKey", "moreNewValues"));
 
         for (Map.Entry<String, String> entry : data.entrySet()) {
-            assertTrue(manager.findValue(entry.getKey()).isPresent());
-            assertEquals(entry.getValue(), manager.findValue(entry.getKey()).get());
+            if (entry.getValue() != null) {
+                assertTrue(manager.findValue(entry.getKey()).isPresent());
+                assertEquals(entry.getValue(), manager.findValue(entry.getKey()).get());
+            } else {
+                assertTrue(manager.findValue(entry.getKey()).isEmpty());
+            }
         }
 
         assertTrue(manager.findValue("newKey").isPresent());
@@ -118,7 +127,7 @@ class SSTableManagerTest {
         manager.flush(data1);
         manager.flush(data2);
 
-        SSTableManager newManager = new SSTableManager();
+        SSTableManager<String, String> newManager = new SSTableManager<>(stringSerDe(), stringSerDe());
         newManager.readTablesFromFile();
 
         assertTrue(newManager.findValue(KEY_1).isPresent());

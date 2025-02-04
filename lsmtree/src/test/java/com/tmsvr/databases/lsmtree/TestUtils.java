@@ -1,5 +1,8 @@
 package com.tmsvr.databases.lsmtree;
 
+import com.tmsvr.databases.lsmtree.sstable.LsmSerDe;
+import com.tmsvr.databases.serde.SerDe;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,5 +24,9 @@ public final class TestUtils {
         }
 
         Files.deleteIfExists(Path.of("commit-log.txt"));
+    }
+
+    public static SerDe<String> stringSerDe() {
+        return new LsmSerDe<>(s -> s, s -> s);
     }
 }

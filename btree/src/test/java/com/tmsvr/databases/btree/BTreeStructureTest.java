@@ -15,11 +15,11 @@ import static com.tmsvr.databases.btree.BTreeNode.ORDER;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BTreeStructureTest {
-    private BTreeDataStore dataStore;
+    private BTreeDataStore<String, String> dataStore;
 
     @BeforeEach
     void setUp() {
-        dataStore = new BTreeDataStore();
+        dataStore = new BTreeDataStore<>();
     }
 
     @Nested
@@ -31,7 +31,7 @@ class BTreeStructureTest {
                 dataStore.put(String.format("%d", i), String.format("value%d", i));
             }
 
-            BTreeNode rootNode = dataStore.getRoot();
+            BTreeNode<String, String> rootNode = dataStore.getRoot();
 
             dataStore.printTree();
 
@@ -46,7 +46,7 @@ class BTreeStructureTest {
                 dataStore.put(String.format("%d", i), String.format("value%d", i));
             }
 
-            BTreeNode rootNode = dataStore.getRoot();
+            BTreeNode<String, String> rootNode = dataStore.getRoot();
 
             dataStore.printTree();
 
@@ -65,7 +65,7 @@ class BTreeStructureTest {
                 dataStore.put(String.format("%d", i), String.format("value%d", i));
             }
 
-            BTreeNode rootNode = dataStore.getRoot();
+            BTreeNode<String, String> rootNode = dataStore.getRoot();
 
             if (!rootNode.isLeaf) {
                 assertTrue(rootNode.children.size() >= 2);
@@ -86,13 +86,13 @@ class BTreeStructureTest {
             assertEquals(1, leafDepths.stream().distinct().count());
         }
 
-        private void checkLeafDepths(BTreeNode node, int depth, List<Integer> leafDepths) {
+        private void checkLeafDepths(BTreeNode<String, String> node, int depth, List<Integer> leafDepths) {
             if (node.isLeaf) {
                 leafDepths.add(depth);
                 return;
             }
 
-            for (BTreeNode child : node.children) {
+            for (BTreeNode<String, String> child : node.children) {
                 checkLeafDepths(child, depth + 1, leafDepths);
             }
         }
@@ -104,7 +104,7 @@ class BTreeStructureTest {
                 dataStore.put(String.format("%d", i), String.format("value%d", i));
             }
 
-            BTreeNode rootNode = dataStore.getRoot();
+            BTreeNode<String, String> rootNode = dataStore.getRoot();
 
             dataStore.printTree();
 
@@ -127,8 +127,8 @@ class BTreeStructureTest {
         dataStore.put("key9", "value9");
 
         // Verify in-order traversal produces sorted order
-        BTreeNode root = dataStore.getRoot();
-        List<DataRecord> allKeys = inOrderTraversal(root);
+        BTreeNode<String, String> root = dataStore.getRoot();
+        List<DataRecord<String, String>> allKeys = inOrderTraversal(root);
 
         for (int i = 0; i < allKeys.size() - 1; i++) {
             assertTrue(allKeys.get(i).key().compareTo(allKeys.get(i + 1).key()) < 0,
@@ -145,7 +145,7 @@ class BTreeStructureTest {
         dataStore.put("key5", "value5");
         dataStore.put("key6", "value6");
 
-        BTreeNode root = dataStore.getRoot();
+        BTreeNode<String, String> root = dataStore.getRoot();
 
         dataStore.printTree();
 
@@ -153,25 +153,25 @@ class BTreeStructureTest {
         assertEquals(2, root.children.size(), "Root should have 2 children after split");
 
         // Verify children have correct keys
-        BTreeNode leftChild = root.children.get(0);
-        BTreeNode rightChild = root.children.get(1);
+        BTreeNode<String, String> leftChild = root.children.get(0);
+        BTreeNode<String, String> rightChild = root.children.get(1);
 
         assertTrue(leftChild.data.size() <= ORDER - 1, "Left child should not exceed maximum keys");
         assertTrue(rightChild.data.size() <= ORDER - 1, "Right child should not exceed maximum keys");
 
-        for (DataRecord kv : leftChild.data) {
+        for (DataRecord<String, String> kv : leftChild.data) {
             assertTrue(kv.key().compareTo(root.data.getFirst().key()) < 0,
                     "Left child keys should be less than root key");
         }
 
-        for (DataRecord kv : rightChild.data) {
+        for (DataRecord<String, String> kv : rightChild.data) {
             assertTrue(kv.key().compareTo(root.data.getFirst().key()) > 0,
                     "Right child keys should be greater than root key");
         }
     }
 
-    private List<DataRecord> inOrderTraversal(BTreeNode node) {
-        List<DataRecord> result = new ArrayList<>();
+    private List<DataRecord<String, String>> inOrderTraversal(BTreeNode<String, String> node) {
+        List<DataRecord<String, String>> result = new ArrayList<>();
         if (node == null) return result;
 
         for (int i = 0; i < node.data.size(); i++) {
@@ -188,11 +188,11 @@ class BTreeStructureTest {
         return result;
     }
 
-    private void traverseAndExecute(BTreeNode node, Consumer<BTreeNode> action) {
+    private void traverseAndExecute(BTreeNode<String, String> node, Consumer<BTreeNode<String, String>> action) {
         action.accept(node);
 
         if (!node.isLeaf) {
-            for (BTreeNode child : node.children) {
+            for (BTreeNode<String, String> child : node.children) {
                 traverseAndExecute(child, action);
             }
         }

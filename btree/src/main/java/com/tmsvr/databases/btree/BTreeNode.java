@@ -5,12 +5,12 @@ import com.tmsvr.databases.DataRecord;
 import java.util.ArrayList;
 import java.util.List;
 
-class BTreeNode {
+class BTreeNode<K extends Comparable<K>, V> {
     static final int MIN_DEGREE = 3; // Minimum degree (t)
     static final int ORDER = MIN_DEGREE * 2; // Order (m)
 
-    final List<DataRecord> data;
-    final List<BTreeNode> children;
+    final List<DataRecord<K, V>> data;  // List of DataRecords with key of type K and value of type V
+    final List<BTreeNode<K, V>> children;  // List of child nodes
     final boolean isLeaf;
 
     public BTreeNode(boolean isLeaf) {
@@ -20,7 +20,7 @@ class BTreeNode {
     }
 
     // Search for a key in the subtree rooted at this node
-    public DataRecord search(String key) {
+    public DataRecord<K, V> search(K key) {
         int i = 0;
         while (i < data.size() && key.compareTo(data.get(i).key()) > 0) {
             i++;
@@ -38,7 +38,7 @@ class BTreeNode {
     }
 
     // Insert a key-value pair into the subtree rooted at this node
-    public void insertNonFull(DataRecord kv) {
+    public void insertNonFull(DataRecord<K, V> kv) {
         int i = data.size() - 1;
 
         if (isLeaf) {
@@ -63,7 +63,7 @@ class BTreeNode {
             i++;
 
             // If the key exists in the child, update the value
-            DataRecord existing = children.get(i).search(kv.key());
+            DataRecord<K, V> existing = children.get(i).search(kv.key());
             if (existing != null) {
                 children.get(i).insertNonFull(kv);
                 return;
@@ -82,11 +82,11 @@ class BTreeNode {
 
     // Split the child at the given index
     public void splitChild(int index) {
-        BTreeNode fullChild = children.get(index);
-        BTreeNode newChild = new BTreeNode(fullChild.isLeaf);
+        BTreeNode<K, V> fullChild = children.get(index);
+        BTreeNode<K, V> newChild = new BTreeNode<>(fullChild.isLeaf);
 
         // Middle key of the full child to be promoted
-        DataRecord middleKey = fullChild.data.get(MIN_DEGREE - 1);
+        DataRecord<K, V> middleKey = fullChild.data.get(MIN_DEGREE - 1);
 
         // Move the last (ORDER-1) keys from the full child to the new child
         newChild.data.addAll(fullChild.data.subList(MIN_DEGREE, fullChild.data.size()));
@@ -103,7 +103,7 @@ class BTreeNode {
         data.add(index, middleKey);
     }
 
-    public void deleteFromNode(String key) {
+    public void deleteFromNode(K key) {
         int idx = findKeyIndex(key);
 
         if (idx < data.size() && data.get(idx).key().equals(key)) {
@@ -113,12 +113,12 @@ class BTreeNode {
                 // Case 2: Key is in an internal node
                 if (children.get(idx).data.size() >= MIN_DEGREE) {
                     // Replace with predecessor
-                    DataRecord predecessor = getPredecessor(idx);
+                    DataRecord<K, V> predecessor = getPredecessor(idx);
                     data.set(idx, predecessor);
                     children.get(idx).deleteFromNode(predecessor.key());
                 } else if (children.get(idx + 1).data.size() >= MIN_DEGREE) {
                     // Replace with successor
-                    DataRecord successor = getSuccessor(idx);
+                    DataRecord<K, V> successor = getSuccessor(idx);
                     data.set(idx, successor);
                     children.get(idx + 1).deleteFromNode(successor.key());
                 } else {
@@ -142,7 +142,7 @@ class BTreeNode {
         }
     }
 
-    private int findKeyIndex(String key) {
+    private int findKeyIndex(K key) {
         int idx = 0;
         while (idx < data.size() && key.compareTo(data.get(idx).key()) > 0) {
             idx++;
@@ -150,16 +150,16 @@ class BTreeNode {
         return idx;
     }
 
-    private DataRecord getPredecessor(int idx) {
-        BTreeNode current = children.get(idx);
+    private DataRecord<K, V> getPredecessor(int idx) {
+        BTreeNode<K, V> current = children.get(idx);
         while (!current.isLeaf) {
             current = current.children.get(current.data.size());
         }
         return current.data.getLast();
     }
 
-    private DataRecord getSuccessor(int idx) {
-        BTreeNode current = children.get(idx + 1);
+    private DataRecord<K, V> getSuccessor(int idx) {
+        BTreeNode<K, V> current = children.get(idx + 1);
         while (!current.isLeaf) {
             current = current.children.getFirst();
         }
@@ -167,8 +167,8 @@ class BTreeNode {
     }
 
     private void mergeChildren(int idx) {
-        BTreeNode leftChild = children.get(idx);
-        BTreeNode rightChild = children.get(idx + 1);
+        BTreeNode<K, V> leftChild = children.get(idx);
+        BTreeNode<K, V> rightChild = children.get(idx + 1);
 
         leftChild.data.add(data.remove(idx));
         leftChild.data.addAll(rightChild.data);
@@ -195,8 +195,8 @@ class BTreeNode {
     }
 
     private void borrowFromPrevious(int idx) {
-        BTreeNode child = children.get(idx);
-        BTreeNode sibling = children.get(idx - 1);
+        BTreeNode<K, V> child = children.get(idx);
+        BTreeNode<K, V> sibling = children.get(idx - 1);
 
         child.data.addFirst(data.get(idx - 1));
         if (!child.isLeaf) {
@@ -207,8 +207,8 @@ class BTreeNode {
     }
 
     private void borrowFromNext(int idx) {
-        BTreeNode child = children.get(idx);
-        BTreeNode sibling = children.get(idx + 1);
+        BTreeNode<K, V> child = children.get(idx);
+        BTreeNode<K, V> sibling = children.get(idx + 1);
 
         child.data.add(data.get(idx));
         if (!child.isLeaf) {
