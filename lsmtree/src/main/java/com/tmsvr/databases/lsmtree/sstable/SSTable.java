@@ -1,6 +1,7 @@
 package com.tmsvr.databases.lsmtree.sstable;
 
 import com.tmsvr.databases.DataRecord;
+import com.tmsvr.databases.bloomfilter.BloomFilter;
 import com.tmsvr.databases.serde.SerDe;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +38,7 @@ public class SSTable<K extends Comparable<K>, V> {
     @Getter
     private final SerDe<V> valueSerDe;
     private final Map<K, Long> index;
+    private final BloomFilter filter;
 
     public SSTable(String filename, SerDe<K> keySerDe, SerDe<V> valueSerDe) throws IOException {
         this.indexFile = Paths.get(filename + INDEX_FILE_SUFFIX);
@@ -44,6 +46,12 @@ public class SSTable<K extends Comparable<K>, V> {
         this.keySerDe = keySerDe;
         this.valueSerDe = valueSerDe;
         this.index = loadIndex();
+        this.filter = buildFilter();
+    }
+
+    private BloomFilter buildFilter() {
+
+        return null;
     }
 
     public int getSize() {
