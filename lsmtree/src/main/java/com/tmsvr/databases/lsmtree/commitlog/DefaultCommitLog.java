@@ -1,6 +1,7 @@
 package com.tmsvr.databases.lsmtree.commitlog;
 
 import com.tmsvr.databases.DataRecord;
+import com.tmsvr.databases.lsmtree.sstable.LsmSerDe;
 import com.tmsvr.databases.serde.SerDe;
 import lombok.extern.slf4j.Slf4j;
 
@@ -11,6 +12,8 @@ import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static com.tmsvr.databases.lsmtree.sstable.LsmSerDe.SEPARATOR;
+
 @Slf4j
 public class DefaultCommitLog<K extends Comparable<K>,V> implements CommitLog<K,V> {
 
@@ -20,7 +23,7 @@ public class DefaultCommitLog<K extends Comparable<K>,V> implements CommitLog<K,
     private long size;
 
 
-    public DefaultCommitLog(SerDe<K> keySerDe, SerDe<V> valueSerDe) throws IOException {
+    public DefaultCommitLog(LsmSerDe<K> keySerDe, LsmSerDe<V> valueSerDe) throws IOException {
         this.keySerDe = keySerDe;
         this.valueSerDe = valueSerDe;
         this.size = 0;
@@ -44,7 +47,7 @@ public class DefaultCommitLog<K extends Comparable<K>,V> implements CommitLog<K,
     }
 
     private String entryToString(DataRecord<K,V> entry) {
-        return keySerDe.serialize(entry.key()) + "::" + valueSerDe.serialize(entry.value()) + System.lineSeparator();
+        return keySerDe.serialize(entry.key()) + SEPARATOR + valueSerDe.serialize(entry.value()) + System.lineSeparator();
     }
 
     @Override
@@ -58,7 +61,7 @@ public class DefaultCommitLog<K extends Comparable<K>,V> implements CommitLog<K,
         return Files.readAllLines(Paths.get(FILE_PATH))
                 .stream()
                 .map(line -> {
-                    String[] split = line.split("::");
+                    String[] split = line.split(SEPARATOR);
                     return new DataRecord<>(keySerDe.deserialize(split[0]), valueSerDe.deserialize(split[1]));
                 }).toList();
     }

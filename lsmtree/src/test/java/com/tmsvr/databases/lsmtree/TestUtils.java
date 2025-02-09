@@ -26,7 +26,7 @@ public final class TestUtils {
         Files.deleteIfExists(Path.of("commit-log.txt"));
     }
 
-    public static SerDe<String> stringSerDe() {
+    public static LsmSerDe<String> stringSerDe() {
         return new LsmSerDe<>(s -> s, s -> s);
     }
 }

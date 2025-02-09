@@ -24,7 +24,7 @@ public class SSTableManager<K extends Comparable<K>, V> {
 
     private int newTablesSinceLastCompaction = 0;
 
-    public SSTableManager(SerDe<K> keySerDe, SerDe<V> valueSerDe) {
+    public SSTableManager(LsmSerDe<K> keySerDe, LsmSerDe<V> valueSerDe) {
         this.keySerDe = keySerDe;
         this.valueSerDe = valueSerDe;
 
@@ -42,6 +42,7 @@ public class SSTableManager<K extends Comparable<K>, V> {
         if (newTablesSinceLastCompaction > COMPACTION_THRESHOLD) {
             compact();
         }
+        System.out.println();
     }
 
     public Optional<V> findValue(K key) throws IOException {

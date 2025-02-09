@@ -23,6 +23,8 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.tmsvr.databases.lsmtree.sstable.LsmSerDe.SEPARATOR;
+
 @Slf4j
 public class SSTable<K extends Comparable<K>, V> {
     private static final String INDEX_FILE_SUFFIX = ".index";
@@ -67,7 +69,7 @@ public class SSTable<K extends Comparable<K>, V> {
         Map<K, Long> newIndex = new TreeMap<>();
         long offset = 0;
         for (Map.Entry<K, V> entry : sortedData.entrySet()) {
-            Files.write(tempFile, (keySerDe.serialize(entry.getKey()) + "::" + valueSerDe.serialize(entry.getValue()) + System.lineSeparator()).getBytes(), StandardOpenOption.APPEND);
+            Files.write(tempFile, (keySerDe.serialize(entry.getKey()) + SEPARATOR + valueSerDe.serialize(entry.getValue()) + System.lineSeparator()).getBytes(), StandardOpenOption.APPEND);
             newIndex.put(entry.getKey(), offset);
             offset++;
         }
@@ -104,18 +106,18 @@ public class SSTable<K extends Comparable<K>, V> {
             }
         }
 
-        String foundKey = result.split("::")[0];
+        String foundKey = result.split(SEPARATOR)[0];
 
         if (!foundKey.equals(stringKey)) {
             throw new IllegalStateException("Unexpected key: " + foundKey);
         }
-        return Optional.ofNullable(valueSerDe.deserialize(result.split("::")[1]));
+        return Optional.ofNullable(valueSerDe.deserialize(result.split(SEPARATOR)[1]));
     }
 
     public List<DataRecord<K, V>> getAllLines() throws IOException {
         return Files.readAllLines(dataFile).stream()
                 .map(line -> {
-                    String[] parts = line.split("::", 2);
+                    String[] parts = line.split(SEPARATOR, 2);
                     if (parts.length < 2) {
                         throw new IllegalArgumentException("Invalid input format: " + line);
                     }

@@ -6,6 +6,8 @@ import java.util.function.Function;
 
 public class LsmSerDe<T> implements SerDe<T> {
     private static final String TOMBSTONE = "<TOMBSTONE>";
+    public static final String SEPARATOR = "::";
+
     private final Function<String, T> deserializer;
     private final Function<T, String> serializer;
 
@@ -29,6 +31,12 @@ public class LsmSerDe<T> implements SerDe<T> {
             return TOMBSTONE;
         }
 
-        return serializer.apply(input);
+        String result = serializer.apply(input);
+
+        if (result == null || result.contains(SEPARATOR)) {
+            throw new IllegalArgumentException("Illegal character in serialized object: " + SEPARATOR);
+        }
+
+        return result;
     }
 }

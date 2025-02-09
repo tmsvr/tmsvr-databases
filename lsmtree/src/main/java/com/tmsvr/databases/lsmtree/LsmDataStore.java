@@ -5,6 +5,7 @@ import com.tmsvr.databases.DataStore;
 import com.tmsvr.databases.lsmtree.commitlog.CommitLog;
 import com.tmsvr.databases.lsmtree.commitlog.DefaultCommitLog;
 import com.tmsvr.databases.lsmtree.memtable.Memtable;
+import com.tmsvr.databases.lsmtree.sstable.LsmSerDe;
 import com.tmsvr.databases.lsmtree.sstable.SSTableManager;
 import com.tmsvr.databases.serde.SerDe;
 
@@ -18,7 +19,7 @@ public class LsmDataStore<K extends Comparable<K>, V> implements DataStore<K, V>
     private final Memtable<K, V> memtable;
     private final SSTableManager<K, V> ssTableManager;
 
-    public LsmDataStore(SerDe<K> keySerDe, SerDe<V> valueSerDe) throws IOException {
+    public LsmDataStore(LsmSerDe<K> keySerDe, LsmSerDe<V> valueSerDe) throws IOException {
         this.commitLog = new DefaultCommitLog<>(keySerDe, valueSerDe);
 
         if (this.commitLog.getSize() > 0) {
