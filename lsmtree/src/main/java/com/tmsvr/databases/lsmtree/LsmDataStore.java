@@ -7,7 +7,6 @@ import com.tmsvr.databases.lsmtree.commitlog.DefaultCommitLog;
 import com.tmsvr.databases.lsmtree.memtable.Memtable;
 import com.tmsvr.databases.lsmtree.sstable.LsmSerDe;
 import com.tmsvr.databases.lsmtree.sstable.SSTableManager;
-import com.tmsvr.databases.serde.SerDe;
 
 import java.io.IOException;
 import java.util.Optional;
