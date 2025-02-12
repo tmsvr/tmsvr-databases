@@ -1,8 +1,13 @@
 package com.tmsvr.databases.lsmtree.sstable.bloomfilter;
 
-import com.tmsvr.databases.lsmtree.sstable.bloomfilter.BloomFilter;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class BloomFilterTest {
@@ -10,9 +15,13 @@ class BloomFilterTest {
     private BloomFilter<String> bloomFilter;
 
     @BeforeEach
-    void setUp() {
-        // Expecting 1000 elements with 1% false positive rate
-        bloomFilter = new BloomFilter<>(1000, 0.01);
+    void setUp() throws IOException {
+        bloomFilter = new BloomFilter<>(1000, 0.01, "filename");
+    }
+
+    @AfterEach
+    void cleanup() throws IOException {
+        Files.deleteIfExists(Path.of("filename.filter"));
     }
 
     @Test
@@ -60,15 +69,14 @@ class BloomFilterTest {
     }
 
     @Test
-    void testSerializationAndDeserialization() {
+    void testSerializationAndDeserialization() throws IOException {
         for (int i = 0; i < 1000; i++) {
             bloomFilter.add("test" + i);
         }
 
-        String serializedData = bloomFilter.serialize();
-        BloomFilter<String> reconstructedFilter = new BloomFilter<>(1000, 0.01, serializedData);
+        bloomFilter.saveToDisk();
+        BloomFilter<String> reconstructedFilter = new BloomFilter<>(1000, 0.01, "filename");
 
-        assertNotNull(serializedData, "Serialized data should not be null");
         for (int i = 0; i < 2000; i++) {
             assertEquals(bloomFilter.isPresent("test" + i), reconstructedFilter.isPresent("test" + i));
         }
