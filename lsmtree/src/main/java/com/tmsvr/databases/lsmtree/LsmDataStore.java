@@ -12,7 +12,7 @@ import java.io.IOException;
 import java.util.Optional;
 
 public class LsmDataStore<K extends Comparable<K>, V> implements DataStore<K, V> {
-    private static final long FLUSH_TO_DISK_LIMIT = 5;
+    public static final int FLUSH_TO_DISK_LIMIT = 5;
 
     private final CommitLog<K,V> commitLog;
     private final Memtable<K, V> memtable;

@@ -1,7 +1,7 @@
 package com.tmsvr.databases.lsmtree.sstable;
 
 import com.tmsvr.databases.DataRecord;
-import com.tmsvr.databases.bloomfilter.BloomFilter;
+import com.tmsvr.databases.lsmtree.sstable.bloomfilter.BloomFilter;
 import com.tmsvr.databases.serde.SerDe;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
@@ -24,34 +25,35 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.tmsvr.databases.lsmtree.LsmDataStore.FLUSH_TO_DISK_LIMIT;
 import static com.tmsvr.databases.lsmtree.sstable.LsmSerDe.SEPARATOR;
 
 @Slf4j
 public class SSTable<K extends Comparable<K>, V> {
     private static final String INDEX_FILE_SUFFIX = ".index";
+    private static final String FILTER_FILE_SUFFIX = ".filter";
     private static final String DATA_FILE_SUFFIX = ".data";
 
+    private static final double FILTER_FALSE_POSITIVE_RATE = 0.01;
+
     private final Path indexFile;
+    private final Path filterFile;
     private final Path dataFile;
     @Getter
     private final SerDe<K> keySerDe;
     @Getter
     private final SerDe<V> valueSerDe;
     private final Map<K, Long> index;
-    private final BloomFilter filter;
+    private final BloomFilter<K> filter;
 
     public SSTable(String filename, SerDe<K> keySerDe, SerDe<V> valueSerDe) throws IOException {
         this.indexFile = Paths.get(filename + INDEX_FILE_SUFFIX);
+        this.filterFile = Paths.get(filename + FILTER_FILE_SUFFIX);
         this.dataFile = Paths.get(filename + DATA_FILE_SUFFIX);
         this.keySerDe = keySerDe;
         this.valueSerDe = valueSerDe;
         this.index = loadIndex();
-        this.filter = buildFilter();
-    }
-
-    private BloomFilter buildFilter() {
-
-        return null;
+        this.filter = loadFilter();
     }
 
     public int getSize() {
@@ -73,10 +75,11 @@ public class SSTable<K extends Comparable<K>, V> {
         // Write data to a temporary file
         Path tempFile = Files.createFile(Path.of(dataFile.getFileName().toString() + ".tmp"));
 
-        // Write the data to the temporary file and create an index
+        // Write the data to the temporary file and create an index, also build the bloom filter
         Map<K, Long> newIndex = new TreeMap<>();
         long offset = 0;
         for (Map.Entry<K, V> entry : sortedData.entrySet()) {
+            filter.add(entry.getKey());
             Files.write(tempFile, (keySerDe.serialize(entry.getKey()) + SEPARATOR + valueSerDe.serialize(entry.getValue()) + System.lineSeparator()).getBytes(), StandardOpenOption.APPEND);
             newIndex.put(entry.getKey(), offset);
             offset++;
@@ -94,9 +97,16 @@ public class SSTable<K extends Comparable<K>, V> {
         // Update the in-memory index
         index.clear();
         index.putAll(newIndex);
+
+        // write filter file
+        Files.writeString(filterFile, filter.serialize());
     }
 
     public Optional<V> getValue(K key) throws IOException {
+        if (!filter.isPresent(key)) {
+            return Optional.empty();
+        }
+
         String stringKey = keySerDe.serialize(key);
         Long offset = index.get(key);
         if (offset == null) {
@@ -143,8 +153,20 @@ public class SSTable<K extends Comparable<K>, V> {
         } catch (ClassNotFoundException e) {
             throw new IOException("Failed to load index", e);
         } catch (EOFException | FileNotFoundException e) {
-            log.info("Index file is empty");
+            log.info("Index file is empty or not present");
             return new TreeMap<>();
+        }
+    }
+
+    private BloomFilter<K> loadFilter() throws IOException {
+        try {
+            String filterContent = Files.readString(filterFile);
+            return new BloomFilter<>(FLUSH_TO_DISK_LIMIT, FILTER_FALSE_POSITIVE_RATE, filterContent);
+        } catch (NoSuchFileException e) {
+            log.info("Filter file is empty or not present");
+            return new BloomFilter<>(FLUSH_TO_DISK_LIMIT, FILTER_FALSE_POSITIVE_RATE);
+        } catch (IOException e) {
+            throw new IOException("Failed to load filter", e);
         }
     }
 }
