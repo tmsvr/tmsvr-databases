@@ -6,7 +6,10 @@ import com.tmsvr.databases.lsmtree.sstable.index.Index;
 import com.tmsvr.databases.serde.SerDe;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -16,7 +19,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.tmsvr.databases.lsmtree.LsmDataStore.FLUSH_TO_DISK_LIMIT;
 import static com.tmsvr.databases.lsmtree.sstable.LsmSerDe.SEPARATOR;
@@ -56,7 +58,8 @@ public class SSTable<K extends Comparable<K>, V> {
     }
 
     public void write(List<DataRecord<K, V>> records) throws IOException {
-        this.write(records.stream().collect(Collectors.toMap(DataRecord::key, DataRecord::value)));
+        Map<K, V> collected = records.stream().collect(Collectors.toMap(DataRecord::key, DataRecord::value, (v1, _) -> v1, TreeMap::new));
+        this.write(collected);
     }
 
     public void write(Map<K, V> data) throws IOException {
@@ -65,27 +68,23 @@ public class SSTable<K extends Comparable<K>, V> {
             return;
         }
 
-        log.info("Writing SSTable to disk: " + dataFile.getFileName().toString());
+        Map<K, V> sortedData = (data instanceof TreeMap) ? data : new TreeMap<>(data);
 
-        Map<K, V> sortedData = new TreeMap<>(data);
+        log.info("Writing SSTable to disk: {}", dataFile.getFileName().toString());
 
-        // Write data to a temporary file
-        Path tempFile = Files.createFile(Path.of(dataFile.getFileName().toString() + ".tmp"));
+        try (BufferedWriter writer = Files.newBufferedWriter(dataFile, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
+            long offset = 0;
 
-        // Write the data to the temporary file and also build the bloom filter and index
-        long offset = 0;
+            for (Map.Entry<K, V> entry : sortedData.entrySet()) {
+                String line = keySerDe.serialize(entry.getKey()) + SEPARATOR + valueSerDe.serialize(entry.getValue()) + System.lineSeparator();
+                writer.write(line);
 
-        for (Map.Entry<K, V> entry : sortedData.entrySet()) {
-            Files.write(tempFile, (keySerDe.serialize(entry.getKey()) + SEPARATOR + valueSerDe.serialize(entry.getValue()) + System.lineSeparator()).getBytes(), StandardOpenOption.APPEND);
+                filter.add(entry.getKey());
+                index.add(entry.getKey(), offset);
 
-            filter.add(entry.getKey());
-            index.add(entry.getKey(), offset);
-
-            offset++;
+                offset += line.getBytes(StandardCharsets.UTF_8).length;
+            }
         }
-
-        // Rename the temporary file to the data file
-        Files.move(tempFile, dataFile);
 
         filter.saveToDisk();
         index.saveToDisk();
@@ -102,23 +101,26 @@ public class SSTable<K extends Comparable<K>, V> {
             return Optional.empty();
         }
 
-        String result;
-        try (Stream<String> lines = Files.lines(dataFile)) {
-            Optional<String> firstLineAfterOffset = lines.skip(offset).findFirst();
+        try (RandomAccessFile raf = new RandomAccessFile(dataFile.toFile(), "r")) {
+            raf.seek(offset);
 
-            if (firstLineAfterOffset.isPresent()) {
-                result = firstLineAfterOffset.get();
-            } else {
+            String result = raf.readLine();
+            if (result == null) {
                 return Optional.empty();
             }
-        }
 
-        String foundKey = result.split(SEPARATOR)[0];
+            String[] parts = result.split(SEPARATOR, 2);
+            if (parts.length < 2) {
+                return Optional.empty();
+            }
 
-        if (!foundKey.equals(stringKey)) {
-            throw new IllegalStateException("Unexpected key: " + foundKey);
+            String foundKey = parts[0];
+            if (!foundKey.equals(stringKey)) {
+                throw new IllegalStateException("Unexpected key: " + foundKey);
+            }
+
+            return Optional.ofNullable(valueSerDe.deserialize(parts[1]));
         }
-        return Optional.ofNullable(valueSerDe.deserialize(result.split(SEPARATOR)[1]));
     }
 
     public List<DataRecord<K, V>> getAllLines() throws IOException {
