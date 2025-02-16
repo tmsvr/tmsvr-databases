@@ -1,17 +1,12 @@
 package com.tmsvr.databases.lsmtree.sstable;
 
 import com.tmsvr.databases.DataRecord;
+import com.tmsvr.databases.lsmtree.sstable.bloomfilter.BloomFilter;
+import com.tmsvr.databases.lsmtree.sstable.index.Index;
 import com.tmsvr.databases.serde.SerDe;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.EOFException;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -23,31 +18,41 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.tmsvr.databases.lsmtree.LsmDataStore.FLUSH_TO_DISK_LIMIT;
 import static com.tmsvr.databases.lsmtree.sstable.LsmSerDe.SEPARATOR;
 
 @Slf4j
 public class SSTable<K extends Comparable<K>, V> {
-    private static final String INDEX_FILE_SUFFIX = ".index";
     private static final String DATA_FILE_SUFFIX = ".data";
 
-    private final Path indexFile;
     private final Path dataFile;
-    @Getter
     private final SerDe<K> keySerDe;
-    @Getter
     private final SerDe<V> valueSerDe;
-    private final Map<K, Long> index;
+    private final Index<K> index;
+    private final BloomFilter<K> filter;
 
     public SSTable(String filename, SerDe<K> keySerDe, SerDe<V> valueSerDe) throws IOException {
-        this.indexFile = Paths.get(filename + INDEX_FILE_SUFFIX);
         this.dataFile = Paths.get(filename + DATA_FILE_SUFFIX);
         this.keySerDe = keySerDe;
         this.valueSerDe = valueSerDe;
-        this.index = loadIndex();
+        this.index = new Index<>(filename, keySerDe);
+        this.filter = new BloomFilter<>(FLUSH_TO_DISK_LIMIT, 0.01, filename);
     }
 
     public int getSize() {
-        return index.size();
+        return index.getSize();
+    }
+
+    public SerDe<K> getKeySerDe() {
+        return keySerDe;
+    }
+
+    public SerDe<V> getValueSerDe() {
+        return valueSerDe;
+    }
+
+    public String getName() {
+        return dataFile.getFileName().toString();
     }
 
     public void write(List<DataRecord<K, V>> records) throws IOException {
@@ -55,42 +60,44 @@ public class SSTable<K extends Comparable<K>, V> {
     }
 
     public void write(Map<K, V> data) throws IOException {
-        if (Files.exists(indexFile)) {
+        if (index.exists()) {
             log.warn("SSTable can't be written, Index file already exists");
             return;
         }
+
+        log.info("Writing SSTable to disk: " + dataFile.getFileName().toString());
 
         Map<K, V> sortedData = new TreeMap<>(data);
 
         // Write data to a temporary file
         Path tempFile = Files.createFile(Path.of(dataFile.getFileName().toString() + ".tmp"));
 
-        // Write the data to the temporary file and create an index
-        Map<K, Long> newIndex = new TreeMap<>();
+        // Write the data to the temporary file and also build the bloom filter and index
         long offset = 0;
+
         for (Map.Entry<K, V> entry : sortedData.entrySet()) {
             Files.write(tempFile, (keySerDe.serialize(entry.getKey()) + SEPARATOR + valueSerDe.serialize(entry.getValue()) + System.lineSeparator()).getBytes(), StandardOpenOption.APPEND);
-            newIndex.put(entry.getKey(), offset);
-            offset++;
-        }
 
-        // Write the index to the index file
-        Files.createFile(indexFile);
-        try (ObjectOutputStream indexObjOut = new ObjectOutputStream(new FileOutputStream(indexFile.toFile()))) {
-            indexObjOut.writeObject(newIndex);
+            filter.add(entry.getKey());
+            index.add(entry.getKey(), offset);
+
+            offset++;
         }
 
         // Rename the temporary file to the data file
         Files.move(tempFile, dataFile);
 
-        // Update the in-memory index
-        index.clear();
-        index.putAll(newIndex);
+        filter.saveToDisk();
+        index.saveToDisk();
     }
 
     public Optional<V> getValue(K key) throws IOException {
+        if (!filter.isPresent(key)) {
+            return Optional.empty();
+        }
+
         String stringKey = keySerDe.serialize(key);
-        Long offset = index.get(key);
+        Long offset = index.getOffset(key);
         if (offset == null) {
             return Optional.empty();
         }
@@ -126,17 +133,5 @@ public class SSTable<K extends Comparable<K>, V> {
                     return new DataRecord<>(key, value);
                 })
                 .collect(Collectors.toList());
-    }
-
-    @SuppressWarnings("unchecked")
-    private Map<K, Long> loadIndex() throws IOException {
-        try (ObjectInputStream indexObjIn = new ObjectInputStream(new FileInputStream(indexFile.toFile()))) {
-            return (Map<K, Long>) indexObjIn.readObject();
-        } catch (ClassNotFoundException e) {
-            throw new IOException("Failed to load index", e);
-        } catch (EOFException | FileNotFoundException e) {
-            log.info("Index file is empty");
-            return new TreeMap<>();
-        }
     }
 }

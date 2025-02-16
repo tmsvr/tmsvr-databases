@@ -36,6 +36,7 @@ public class SSTableTest {
     void cleanup() throws IOException {
         Files.deleteIfExists(Path.of(FILENAME + ".index"));
         Files.deleteIfExists(Path.of(FILENAME + ".data"));
+        Files.deleteIfExists(Path.of(FILENAME + ".filter"));
     }
 
     @Test
@@ -45,6 +46,7 @@ public class SSTableTest {
 
         assertTrue(Files.exists(Path.of(FILENAME + ".index")));
         assertTrue(Files.exists(Path.of(FILENAME + ".data")));
+        assertTrue(Files.exists(Path.of(FILENAME + ".filter")));
 
         assertTrue(ssTable.getValue(KEY_1).isPresent());
         assertTrue(ssTable.getValue(KEY_2).isPresent());

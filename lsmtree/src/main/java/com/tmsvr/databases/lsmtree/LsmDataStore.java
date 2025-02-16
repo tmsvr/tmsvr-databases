@@ -12,13 +12,14 @@ import java.io.IOException;
 import java.util.Optional;
 
 public class LsmDataStore<K extends Comparable<K>, V> implements DataStore<K, V> {
-    private static final long FLUSH_TO_DISK_LIMIT = 5;
+    public static int FLUSH_TO_DISK_LIMIT = 5;
 
     private final CommitLog<K,V> commitLog;
     private final Memtable<K, V> memtable;
     private final SSTableManager<K, V> ssTableManager;
 
-    public LsmDataStore(LsmSerDe<K> keySerDe, LsmSerDe<V> valueSerDe) throws IOException {
+    public LsmDataStore(LsmSerDe<K> keySerDe, LsmSerDe<V> valueSerDe, int memtableSize) throws IOException {
+        FLUSH_TO_DISK_LIMIT = memtableSize;
         this.commitLog = new DefaultCommitLog<>(keySerDe, valueSerDe);
 
         if (this.commitLog.getSize() > 0) {

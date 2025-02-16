@@ -1,9 +1,13 @@
 package com.tmsvr.databases.lsmtree.sstable;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
+@Slf4j
 public class RowCountBasedCompactor<K extends Comparable<K>, V> extends AbstractCompactor<K, V> {
 
     private final int compactionSizeLimit;
@@ -14,6 +18,7 @@ public class RowCountBasedCompactor<K extends Comparable<K>, V> extends Abstract
 
     @Override
     public List<SSTable<K, V>> compact(List<SSTable<K, V>> tables) throws IOException {
+        log.info("Running compaction on tables: " + tables.stream().map(SSTable::getName).collect(Collectors.joining(", ")));
         List<SSTable<K, V>> result = new ArrayList<>();
 
         for (int i = 0; i < tables.size(); i++) {
@@ -33,6 +38,7 @@ public class RowCountBasedCompactor<K extends Comparable<K>, V> extends Abstract
             }
         }
 
+        log.info("Compaction result tables: " + result.stream().map(SSTable::getName).collect(Collectors.joining(", ")));
         return result;
     }
 }

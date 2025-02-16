@@ -146,7 +146,7 @@ class SSTableManagerTest {
             long filesStartingWithSSTable = files.filter(path -> path.getFileName().toString().startsWith("sstable"))
                     .count();
 
-            assertEquals(numberOfExpectedTables, filesStartingWithSSTable / 2);
+            assertEquals(numberOfExpectedTables, filesStartingWithSSTable / 3);
         }
     }
 }
