@@ -10,6 +10,8 @@ The corresponding articles:
 - [Log-structured merge trees](https://tmsvr.com/how-a-log-structured-merge-tree-database-engine-works/)
 - [B-Trees](https://tmsvr.com/building-a-database-b-trees/)
 - [Using generics](https://tmsvr.com/practical-use-of-generics-in-java/ )
+- [Bloom filters](https://tmsvr.com/building-a-database-iii-bloom-filters-and-performance/)
+- [Java I/O performance](https://tmsvr.com/java-file-writing-i-o-performance/ )
 
 The concept is simple, there is a `DataStore` interface that is implemented by different engines. The project uses minimal to zero dependencies, mainly for testing.
 
