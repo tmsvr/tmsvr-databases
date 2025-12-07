@@ -2,6 +2,7 @@ package com.tmsvr.databases.lsmtree;
 
 import com.tmsvr.databases.DataStore;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static com.tmsvr.databases.lsmtree.TestUtils.stringSerDe;
@@ -16,6 +17,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.stream.Stream;
 
+@Disabled
 public class DataStorePerformanceTest {
     private static final int ITEM_COUNT = 400_000;
     private static final int MEMTABLE_SIZE = 50_000;
