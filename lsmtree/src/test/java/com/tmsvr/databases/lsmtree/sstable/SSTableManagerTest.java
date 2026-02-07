@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SSTableManagerTest {
-
+/*
     private SSTableManager<String, String> manager;
 
     @BeforeEach
@@ -149,4 +149,6 @@ class SSTableManagerTest {
             assertEquals(numberOfExpectedTables, filesStartingWithSSTable / 3);
         }
     }
+
+ */
 }

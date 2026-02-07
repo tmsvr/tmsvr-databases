@@ -14,10 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.tmsvr.databases.lsmtree.LsmDataStore.FLUSH_TO_DISK_LIMIT;
@@ -62,21 +59,51 @@ public class SSTable<K extends Comparable<K>, V> {
         this.write(collected);
     }
 
+    /**
+     * Write a Map to SSTable (sorted if needed).
+     */
     public void write(Map<K, V> data) throws IOException {
+        if (data == null || data.isEmpty()) return;
+
+        Iterable<Map.Entry<K, V>> entries;
+        if (data instanceof SortedMap<K,V>) {
+            entries = data.entrySet();
+        } else {
+            entries = new TreeMap<>(data).entrySet(); // sort
+        }
+
+        writeEntries(entries);
+    }
+
+    /**
+     * Write entries directly to SSTable without copying.
+     */
+    public void write(Iterable<Map.Entry<K, V>> entries) throws IOException {
+        if (entries == null) return;
+        writeEntries(entries);
+    }
+
+    /**
+     * Internal helper: writes any iterable of entries to disk and updates index/filter.
+     */
+    private void writeEntries(Iterable<Map.Entry<K, V>> entries) throws IOException {
         if (index.exists()) {
             log.warn("SSTable can't be written, Index file already exists");
             return;
         }
 
-        Map<K, V> sortedData = (data instanceof TreeMap) ? data : new TreeMap<>(data);
+        log.info("Writing SSTable to disk: {}", dataFile.getFileName());
 
-        log.info("Writing SSTable to disk: {}", dataFile.getFileName().toString());
+        try (BufferedWriter writer = Files.newBufferedWriter(
+                dataFile, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
 
-        try (BufferedWriter writer = Files.newBufferedWriter(dataFile, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
             long offset = 0;
 
-            for (Map.Entry<K, V> entry : sortedData.entrySet()) {
-                String line = keySerDe.serialize(entry.getKey()) + SEPARATOR + valueSerDe.serialize(entry.getValue()) + System.lineSeparator();
+            for (Map.Entry<K, V> entry : entries) {
+                String line = keySerDe.serialize(entry.getKey())
+                        + SEPARATOR
+                        + valueSerDe.serialize(entry.getValue())
+                        + System.lineSeparator();
                 writer.write(line);
 
                 filter.add(entry.getKey());

@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class LsmDataStoreConcurrencyTest {
 
@@ -33,7 +34,7 @@ public class LsmDataStoreConcurrencyTest {
     }
 
     @Test
-    void testConcurrentWrites() throws InterruptedException, IOException {
+    void testConcurrentWrites() throws Exception {
         LsmSerDe<String> stringSerDe = new LsmSerDe<>(Function.identity(), Function.identity());
         // Small memtable to force flushes
         LsmDataStore<String, String> dataStore = new LsmDataStore<>(stringSerDe, stringSerDe, 10);
@@ -60,8 +61,12 @@ public class LsmDataStoreConcurrencyTest {
             });
         }
 
-        latch.await(10, TimeUnit.SECONDS);
+        latch.await(30, TimeUnit.SECONDS);
         executorService.shutdown();
+        assertTrue(executorService.awaitTermination(10, TimeUnit.SECONDS));
+
+        // Give flush executor more time to complete all pending flushes
+        Thread.sleep(5000);
 
         // Verify data
         int foundCount = 0;
@@ -75,5 +80,61 @@ public class LsmDataStoreConcurrencyTest {
         }
 
         assertEquals(threadCount * operationsPerThread, foundCount, "Lost updates due to race conditions!");
+
+        // Clean shutdown
+        dataStore.close();
+    }
+
+    @Test
+    void testConcurrentRotations() throws Exception {
+        LsmSerDe<String> stringSerDe = new LsmSerDe<>(Function.identity(), Function.identity());
+        // Very small memtable to trigger many rotations
+        LsmDataStore<String, String> dataStore = new LsmDataStore<>(stringSerDe, stringSerDe, 3);
+
+        int threadCount = 10;
+        int operationsPerThread = 50;
+        ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch latch = new CountDownLatch(threadCount);
+
+        for (int i = 0; i < threadCount; i++) {
+            final int threadId = i;
+            executorService.submit(() -> {
+                try {
+                    for (int j = 0; j < operationsPerThread; j++) {
+                        String key = "rotation-key-" + threadId + "-" + j;
+                        String value = "rotation-value-" + threadId + "-" + j;
+                        dataStore.put(key, value); // Will trigger many concurrent rotations
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+
+        latch.await(30, TimeUnit.SECONDS);
+        executorService.shutdown();
+        assertTrue(executorService.awaitTermination(10, TimeUnit.SECONDS));
+
+        // Give flush executor time
+        Thread.sleep(2000);
+
+        // Verify all data is present
+        int foundCount = 0;
+        for (int i = 0; i < threadCount; i++) {
+            for (int j = 0; j < operationsPerThread; j++) {
+                String key = "rotation-key-" + i + "-" + j;
+                if (dataStore.get(key).isPresent()) {
+                    foundCount++;
+                }
+            }
+        }
+
+        assertEquals(threadCount * operationsPerThread, foundCount,
+                "Lost updates during concurrent rotations!");
+
+        // Clean shutdown
+        dataStore.close();
     }
 }

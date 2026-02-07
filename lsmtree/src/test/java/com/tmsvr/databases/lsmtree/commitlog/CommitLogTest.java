@@ -2,12 +2,11 @@ package com.tmsvr.databases.lsmtree.commitlog;
 
 import com.tmsvr.databases.DataRecord;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 
 import static com.tmsvr.databases.lsmtree.TestUtils.stringSerDe;
@@ -16,53 +15,111 @@ import static org.junit.jupiter.api.Assertions.*;
 class CommitLogTest {
 
     @AfterEach
-    @BeforeEach
     void cleanup() throws IOException {
-        Files.deleteIfExists(Path.of(DefaultCommitLog.FILE_PATH));
+        // Clean up any test commit log segments
+        Files.list(Paths.get(""))
+                .filter(path -> path.toString().matches(".*commit-log-.*\\.txt$"))
+                .forEach(path -> {
+                    try {
+                        Files.deleteIfExists(path);
+                    } catch (IOException e) {
+                        // Ignore
+                    }
+                });
     }
 
     @Test
-    void creationIsOk() throws IOException {
-        CommitLog<String, String> cm = new DefaultCommitLog<>(stringSerDe(), stringSerDe());
+    void testCreateSegment() throws IOException {
+        DefaultCommitLog<String, String> commitLog = new DefaultCommitLog<>(stringSerDe(), stringSerDe());
 
-        assertEquals(0, cm.getSize());
-        assertTrue(cm.readCommitLog().isEmpty());
-        assertTrue(Files.exists(Path.of(DefaultCommitLog.FILE_PATH)));
+        CommitLogSegment<String, String> segment = commitLog.createSegment();
+        assertNotNull(segment);
+        assertNotNull(segment.getSegmentId());
+
+        assertTrue(Files.exists(Paths.get("commit-log-" + segment.getSegmentId() + ".txt")));
+
+        segment.close();
+        segment.delete();
     }
 
     @Test
-    void appendAndReadIsOk() throws IOException {
-        CommitLog<String, String> cm = new DefaultCommitLog<>(stringSerDe(), stringSerDe());
+    void testSegmentAppendAndDelete() throws IOException {
+        CommitLogSegment<String, String> segment = new CommitLogSegment<>("test-segment", stringSerDe(), stringSerDe());
 
-        cm.append(new DataRecord<>("a", "b"));
-        cm.append(new DataRecord<>("a", "c"));
-        cm.append(new DataRecord<>("b", "d"));
+        segment.append(new DataRecord<>("a", "b"));
+        segment.append(new DataRecord<>("c", "d"));
 
-        assertEquals(3, cm.getSize());
-        List<DataRecord<String, String>> commitLogEntries = cm.readCommitLog();
-        assertEquals(3, commitLogEntries.size());
+        assertTrue(Files.exists(Paths.get("commit-log-test-segment.txt")));
 
-        assertTrue(commitLogEntries.contains(new DataRecord<>("a", "b")));
-        assertTrue(commitLogEntries.contains(new DataRecord<>("a", "c")));
-        assertTrue(commitLogEntries.contains(new DataRecord<>("b", "d")));
+        segment.close();
+        segment.delete();
+
+        assertFalse(Files.exists(Paths.get("commit-log-test-segment.txt")));
     }
 
     @Test
-    void clearIsOk() throws IOException {
-        CommitLog<String, String> cm = new DefaultCommitLog<>(stringSerDe(), stringSerDe());
+    void testRecoverSegments() throws IOException {
+        DefaultCommitLog<String, String> commitLog = new DefaultCommitLog<>(stringSerDe(), stringSerDe());
 
-        cm.append(new DataRecord<>("a", "b"));
-        cm.append(new DataRecord<>("a", "c"));
-        cm.append(new DataRecord<>("b", "d"));
+        // Create multiple segments
+        CommitLogSegment<String, String> seg1 = commitLog.createSegment();
+        CommitLogSegment<String, String> seg2 = commitLog.createSegment();
+        CommitLogSegment<String, String> seg3 = commitLog.createSegment();
 
-        assertEquals(3, cm.getSize());
-        List<DataRecord<String, String>> commitLogEntries = cm.readCommitLog();
-        assertEquals(3, commitLogEntries.size());
+        seg1.append(new DataRecord<>("a", "b"));
+        seg2.append(new DataRecord<>("c", "d"));
+        seg3.append(new DataRecord<>("e", "f"));
 
-        cm.clear();
+        seg1.close();
+        seg2.close();
+        seg3.close();
 
-        assertEquals(0, cm.getSize());
-        assertTrue(cm.readCommitLog().isEmpty());
-        assertTrue(Files.exists(Path.of(DefaultCommitLog.FILE_PATH)));
+        // Recover segments
+        List<CommitLogSegment<String, String>> recovered = commitLog.recoverSegments();
+
+        assertEquals(3, recovered.size(), "Should recover all 3 segments");
+
+        // Cleanup
+        for (CommitLogSegment<String, String> seg : recovered) {
+            seg.close();
+            seg.delete();
+        }
+    }
+
+    @Test
+    void testSegmentSynchronizedAppend() throws IOException, InterruptedException {
+        CommitLogSegment<String, String> segment = new CommitLogSegment<>("test-concurrent", stringSerDe(),
+                stringSerDe());
+
+        int threadCount = 10;
+        int appendsPerThread = 50;
+        Thread[] threads = new Thread[threadCount];
+
+        for (int i = 0; i < threadCount; i++) {
+            final int threadId = i;
+            threads[i] = new Thread(() -> {
+                try {
+                    for (int j = 0; j < appendsPerThread; j++) {
+                        segment.append(new DataRecord<>("key-" + threadId, "value-" + j));
+                    }
+                } catch (IOException e) {
+                    fail("Append failed: " + e.getMessage());
+                }
+            });
+            threads[i].start();
+        }
+
+        for (Thread thread : threads) {
+            thread.join();
+        }
+
+        segment.close();
+
+        // Verify file exists and has content
+        assertTrue(Files.exists(Paths.get("commit-log-test-concurrent.txt")));
+        long lineCount = Files.lines(Paths.get("commit-log-test-concurrent.txt")).count();
+        assertEquals(threadCount * appendsPerThread, lineCount, "All appends should be present");
+
+        segment.delete();
     }
 }

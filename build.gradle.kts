@@ -21,14 +21,14 @@ subprojects {
     dependencies {
         compileOnly("org.projectlombok:lombok:1.18.42")
         annotationProcessor("org.projectlombok:lombok:1.18.42")
-        implementation("org.slf4j:slf4j-api:2.0.16")
-        implementation("ch.qos.logback:logback-classic:1.5.12")
+        implementation("org.slf4j:slf4j-api:2.0.17")
+        implementation("ch.qos.logback:logback-classic:1.5.27")
 
-        implementation("commons-codec:commons-codec:1.18.0")
+        implementation("commons-codec:commons-codec:1.21.0")
 
-        testImplementation(platform("org.junit:junit-bom:5.11.3"))
+        testImplementation(platform("org.junit:junit-bom:6.0.2"))
         testImplementation("org.junit.jupiter:junit-jupiter")
-        testImplementation("org.mockito:mockito-core:3.+")
+        testImplementation("org.mockito:mockito-core:5.21.0")
     }
 
     tasks.test {
