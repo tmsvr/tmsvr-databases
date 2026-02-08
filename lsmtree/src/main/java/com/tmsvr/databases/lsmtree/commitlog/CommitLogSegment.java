@@ -22,12 +22,18 @@ import static com.tmsvr.databases.lsmtree.sstable.LsmSerDe.SEPARATOR;
  */
 @Slf4j
 public class CommitLogSegment<K extends Comparable<K>, V> {
+    private static final int FLUSH_EVERY_N_RECORDS = 1000;
+    private static final long FLUSH_EVERY_MS = 10;
+
     @Getter
     private final String segmentId;
     private final SerDe<K> keySerDe;
     private final SerDe<V> valueSerDe;
     private final FileChannel fileChannel;
     private final Path filePath;
+
+    private int pendingWrites = 0;
+    private long lastFlushTime = System.currentTimeMillis();
 
     public CommitLogSegment(String segmentId, SerDe<K> keySerDe, SerDe<V> valueSerDe) throws IOException {
         this.segmentId = segmentId;
@@ -39,8 +45,7 @@ public class CommitLogSegment<K extends Comparable<K>, V> {
                 filePath,
                 StandardOpenOption.CREATE,
                 StandardOpenOption.WRITE,
-                StandardOpenOption.APPEND,
-                StandardOpenOption.DSYNC);
+                StandardOpenOption.APPEND);
 
         log.debug("Created commit log segment: {}", segmentId);
     }
@@ -50,9 +55,19 @@ public class CommitLogSegment<K extends Comparable<K>, V> {
      * Synchronized to prevent concurrent FileChannel writes from corrupting the WAL.
      */
     public synchronized void append(DataRecord<K, V> record) throws IOException {
-        String line = keySerDe.serialize(record.key()) + SEPARATOR + valueSerDe.serialize(record.value()) + System.lineSeparator();
+        String line = keySerDe.serialize(record.key()) + SEPARATOR +
+                valueSerDe.serialize(record.value()) + System.lineSeparator();
         ByteBuffer buffer = ByteBuffer.wrap(line.getBytes());
         fileChannel.write(buffer);
+
+        pendingWrites++;
+
+        long now = System.currentTimeMillis();
+        if (pendingWrites >= FLUSH_EVERY_N_RECORDS || now - lastFlushTime >= FLUSH_EVERY_MS) {
+            fileChannel.force(true); // flush batch
+            pendingWrites = 0;
+            lastFlushTime = now;
+        }
     }
 
     /**
