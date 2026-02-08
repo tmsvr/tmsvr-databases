@@ -18,7 +18,7 @@ class CommitLogTest {
     void cleanup() throws IOException {
         // Clean up any test commit log segments
         Files.list(Paths.get(""))
-                .filter(path -> path.toString().matches(".*commit-log-.*\\.txt$"))
+                .filter(path -> path.toString().matches(".*commit-log-.*\\.wal$"))
                 .forEach(path -> {
                     try {
                         Files.deleteIfExists(path);
@@ -36,7 +36,7 @@ class CommitLogTest {
         assertNotNull(segment);
         assertNotNull(segment.getSegmentId());
 
-        assertTrue(Files.exists(Paths.get("commit-log-" + segment.getSegmentId() + ".txt")));
+        assertTrue(Files.exists(Paths.get("commit-log-" + segment.getSegmentId() + ".wal")));
 
         segment.close();
         segment.delete();
@@ -49,12 +49,12 @@ class CommitLogTest {
         segment.append(new DataRecord<>("a", "b"));
         segment.append(new DataRecord<>("c", "d"));
 
-        assertTrue(Files.exists(Paths.get("commit-log-test-segment.txt")));
+        assertTrue(Files.exists(Paths.get("commit-log-test-segment.wal")));
 
         segment.close();
         segment.delete();
 
-        assertFalse(Files.exists(Paths.get("commit-log-test-segment.txt")));
+        assertFalse(Files.exists(Paths.get("commit-log-test-segment.wal")));
     }
 
     @Test
@@ -116,8 +116,8 @@ class CommitLogTest {
         segment.close();
 
         // Verify file exists and has content
-        assertTrue(Files.exists(Paths.get("commit-log-test-concurrent.txt")));
-        long lineCount = Files.lines(Paths.get("commit-log-test-concurrent.txt")).count();
+        assertTrue(Files.exists(Paths.get("commit-log-test-concurrent.wal")));
+        long lineCount = Files.lines(Paths.get("commit-log-test-concurrent.wal")).count();
         assertEquals(threadCount * appendsPerThread, lineCount, "All appends should be present");
 
         segment.delete();

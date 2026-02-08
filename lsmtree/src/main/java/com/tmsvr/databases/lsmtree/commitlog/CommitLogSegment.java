@@ -84,10 +84,11 @@ public class CommitLogSegment<K extends Comparable<K>, V> {
             throw new IOException("Commit log segment is closed");
         }
 
-        boolean offered = queue.offer(record);
-        if (!offered) {
-            // Backpressure – WAL is falling behind
-            throw new IOException("Commit log queue full (backpressure)");
+        try {
+            queue.put(record); // BLOCKS
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while enqueueing WAL record", e);
         }
     }
 

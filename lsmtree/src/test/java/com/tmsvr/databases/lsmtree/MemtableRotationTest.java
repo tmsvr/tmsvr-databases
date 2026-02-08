@@ -70,12 +70,12 @@ public class MemtableRotationTest {
         assertSame(segment.getSegmentId(), immutable.getCommitLogSegmentId());
 
         // Verify WAL file exists
-        assertTrue(Files.exists(Paths.get("commit-log-pairing-test.txt")));
+        assertTrue(Files.exists(Paths.get("commit-log-pairing-test.wal")));
 
         // Cleanup
         segment.close();
         segment.delete();
-        assertFalse(Files.exists(Paths.get("commit-log-pairing-test.txt")));
+        assertFalse(Files.exists(Paths.get("commit-log-pairing-test.wal")));
     }
 
     @Test
@@ -164,7 +164,7 @@ public class MemtableRotationTest {
 
         // Count segments at the very start (should be 1: initial segment)
         long initialSegmentCount = Files.list(Paths.get(""))
-                .filter(path -> path.toString().matches(".*commit-log-.*\\.txt$"))
+                .filter(path -> path.toString().matches(".*commit-log-.*\\.wal$"))
                 .count();
 
         // Write to trigger rotations (10 writes / 3 per memtable = ~3 rotations)
@@ -174,7 +174,7 @@ public class MemtableRotationTest {
 
         // Count segments immediately (before flush completes and deletes them)
         long midSegmentCount = Files.list(Paths.get(""))
-                .filter(path -> path.toString().matches(".*commit-log-.*\\.txt$"))
+                .filter(path -> path.toString().matches(".*commit-log-.*\\.wal$"))
                 .count();
 
         // Should have more segments now (active + immutable waiting for flush)
