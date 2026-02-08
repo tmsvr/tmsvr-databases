@@ -14,29 +14,27 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import static com.tmsvr.databases.lsmtree.sstable.LsmSerDe.SEPARATOR;
 
 /**
  * Asynchronous commit log segment with group commit.
- *
  * Durability model:
  * - append() returns after enqueue (NOT fsync)
- * - data is flushed to disk periodically
- * - crash may lose last FLUSH_EVERY_MS or FLUSH_EVERY_N_RECORDS
- *
- * This matches RocksDB / Cassandra behavior.
+ * - fsync happens periodically
+ * - crash may lose last FSYNC_INTERVAL_MS of data
  */
 @Slf4j
 public class CommitLogSegment<K extends Comparable<K>, V> {
 
     // Tunables
-    private static final int FLUSH_EVERY_N_RECORDS = 2048;
-    private static final long FLUSH_EVERY_MS = 10;
-    private static final int QUEUE_CAPACITY = 100_000;
+    private static final int FLUSH_EVERY_N_RECORDS = 8_192;
+    private static final long POLL_TIMEOUT_MS = 10;
+    private static final long FSYNC_INTERVAL_MS = 50;
+    private static final int QUEUE_CAPACITY = 500_000;
 
     @Getter
     private final String segmentId;
@@ -68,7 +66,8 @@ public class CommitLogSegment<K extends Comparable<K>, V> {
                 StandardOpenOption.APPEND
         );
 
-        this.queue = new LinkedBlockingQueue<>(QUEUE_CAPACITY);
+        this.queue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
+
         this.writerThread = new Thread(this::runWriter, "commit-log-writer-" + segmentId);
         this.writerThread.start();
 
@@ -77,7 +76,7 @@ public class CommitLogSegment<K extends Comparable<K>, V> {
 
     /**
      * Enqueue record for asynchronous WAL append.
-     * Returns immediately after enqueue.
+     * Blocks under backpressure (no data loss).
      */
     public void append(DataRecord<K, V> record) throws IOException {
         if (!running) {
@@ -85,7 +84,7 @@ public class CommitLogSegment<K extends Comparable<K>, V> {
         }
 
         try {
-            queue.put(record); // BLOCKS
+            queue.put(record); // BLOCKING backpressure
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("Interrupted while enqueueing WAL record", e);
@@ -94,44 +93,34 @@ public class CommitLogSegment<K extends Comparable<K>, V> {
 
     private void runWriter() {
         List<DataRecord<K, V>> batch = new ArrayList<>(FLUSH_EVERY_N_RECORDS);
-        long lastFlushTime = System.nanoTime();
+        long lastFsyncTime = System.nanoTime();
 
         try {
             while (running || !queue.isEmpty()) {
-                DataRecord<K, V> first = queue.poll(FLUSH_EVERY_MS, TimeUnit.MILLISECONDS);
-
-                if (first != null) {
-                    batch.add(first);
-                    queue.drainTo(batch, FLUSH_EVERY_N_RECORDS - 1);
-                }
-
-                if (batch.isEmpty()) {
+                DataRecord<K, V> first = queue.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+                if (first == null) {
                     continue;
                 }
+
+                batch.add(first);
+                queue.drainTo(batch, FLUSH_EVERY_N_RECORDS);
 
                 writeBatch(batch);
                 batch.clear();
 
                 long now = System.nanoTime();
-                if (shouldFlush(now, lastFlushTime)) {
+                if (TimeUnit.NANOSECONDS.toMillis(now - lastFsyncTime) >= FSYNC_INTERVAL_MS) {
                     fileChannel.force(false); // data only
-                    lastFlushTime = now;
+                    lastFsyncTime = now;
                 }
             }
 
-            // Final flush on shutdown
+            // Final durability barrier
             fileChannel.force(true);
 
         } catch (Exception e) {
             log.error("Commit log writer thread failed", e);
         }
-    }
-
-    private boolean shouldFlush(long now, long lastFlushTime) {
-        if (writeBuffer.position() > writeBuffer.capacity() / 2) {
-            return true;
-        }
-        return TimeUnit.NANOSECONDS.toMillis(now - lastFlushTime) >= FLUSH_EVERY_MS;
     }
 
     private void writeBatch(List<DataRecord<K, V>> batch) throws IOException {
