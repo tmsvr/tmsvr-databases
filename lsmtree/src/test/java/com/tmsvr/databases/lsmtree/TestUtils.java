@@ -13,7 +13,8 @@ public final class TestUtils {
         try (Stream<Path> files = Files.list(Path.of("."))) {
             files
                     .filter(path -> path.getFileName().toString().startsWith("table")
-                            || path.getFileName().toString().startsWith("sstable"))
+                            || path.getFileName().toString().startsWith("sstable")
+                            || path.getFileName().toString().startsWith("commit-log-"))
                     .forEach(path1 -> {
                         try {
                             Files.delete(path1);
@@ -23,7 +24,7 @@ public final class TestUtils {
                     });
         }
 
-        Files.deleteIfExists(Path.of("commit-log.txt"));
+        Files.deleteIfExists(Path.of("commit-log.wal"));
     }
 
     public static LsmSerDe<String> stringSerDe() {

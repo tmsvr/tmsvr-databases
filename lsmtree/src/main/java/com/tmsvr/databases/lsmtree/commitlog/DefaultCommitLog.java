@@ -41,12 +41,12 @@ public class DefaultCommitLog<K extends Comparable<K>, V> implements CommitLog<K
         Path rootPath = Paths.get("");
 
         try (Stream<Path> paths = Files.find(rootPath, 1,
-                (path, attrs) -> path.toString().matches(".*commit-log-.*\\.txt$"))) {
+                (path, attrs) -> path.toString().matches(".*commit-log-.*\\.wal$"))) {
             paths.forEach(path -> {
                 try {
-                    // Extract segment ID from filename: commit-log-{UUID}.txt
+                    // Extract segment ID from filename: commit-log-{UUID}.wal
                     String filename = path.getFileName().toString();
-                    String segmentId = filename.replace("commit-log-", "").replace(".txt", "");
+                    String segmentId = filename.replace("commit-log-", "").replace(".wal", "");
 
                     log.info("Recovering commit log segment: {}", segmentId);
                     CommitLogSegment<K, V> segment = new CommitLogSegment<>(segmentId, keySerDe, valueSerDe);

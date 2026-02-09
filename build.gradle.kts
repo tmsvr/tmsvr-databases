@@ -1,12 +1,18 @@
 plugins {
     java
+    id("me.champeau.jmh") version "0.7.3"
 }
 
 group = "com.tmsvr.databases"
 version = "1.0-SNAPSHOT"
 
+repositories {
+    mavenCentral()
+}
+
 subprojects {
     apply(plugin = "java")
+    apply(plugin = "me.champeau.jmh")
 
     java {
         toolchain {
